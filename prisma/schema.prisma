@@ -1,0 +1,616 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  passwordHash      String    @map("password_hash")
+  firstName         String    @map("first_name")
+  lastName          String    @map("last_name")
+  role              UserRole
+  avatar            String?
+  phone             String?
+  province          String?
+  district          String?
+  isActive          Boolean   @default(true) @map("is_active")
+  emailVerified     Boolean   @default(false) @map("email_verified")
+  twoFactorEnabled  Boolean   @default(false) @map("two_factor_enabled")
+  twoFactorSecret   String?   @map("two_factor_secret")
+  subscriptionTier  SubscriptionTier @default(FREE) @map("subscription_tier")
+  subscriptionExpiry DateTime? @map("subscription_expiry")
+  schoolId          String?   @map("school_id")
+  school            School?   @relation(fields: [schoolId], references: [id])
+  studentProfile    StudentProfile?
+  teacherProfile    TeacherProfile?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  lastLoginAt       DateTime? @map("last_login_at")
+  refreshTokens     RefreshToken[]
+  presentations     Presentation[]
+  quizAttempts      QuizAttempt[]
+  chatSessions      ChatSession[]
+  offlineSyncQueue  OfflineSyncQueue[]
+  payments          PaymentTransaction[]
+  scholarshipApps   ScholarshipApplication[]
+  activities        ActivityLog[]
+  notifications     Notification[]
+
+  @@index([email])
+  @@index([schoolId])
+  @@index([role])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  revokedAt DateTime? @map("revoked_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+model School {
+  id                      String    @id @default(cuid())
+  name                    String
+  code                    String    @unique
+  type                    EducationLevel
+  province                String
+  district                String
+  address                 String
+  phone                   String
+  email                   String
+  website                 String?
+  principalName           String    @map("principal_name")
+  principalUserId         String?   @map("principal_user_id")
+  isVerified              Boolean   @default(false) @map("is_verified")
+  verificationDocument    String?   @map("verification_document")
+  verifiedAt              DateTime? @map("verified_at")
+  verifiedBy              String?   @map("verified_by")
+  logo                    String?
+  bannerImage             String?   @map("banner_image")
+  settings                SchoolSettings?
+  maxStudents             Int       @default(500) @map("max_students")
+  maxTeachers             Int       @default(50) @map("max_teachers")
+  currentStudentCount     Int       @default(0) @map("current_student_count")
+  currentTeacherCount     Int       @default(0) @map("current_teacher_count")
+  subscriptionTier        SubscriptionTier @default(FREE) @map("subscription_tier")
+  subscriptionExpiry      DateTime? @map("subscription_expiry")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+  users                   User[]
+  studentProfiles         StudentProfile[]
+  teacherProfiles         TeacherProfile[]
+  classes                 Class[]
+  lessonPlans             LessonPlan[]
+  presentations           Presentation[]
+  quizzes                 Quiz[]
+  payments                PaymentTransaction[]
+  activities              ActivityLog[]
+
+  @@index([code])
+  @@index([province])
+  @@index([isVerified])
+  @@map("schools")
+}
+
+model SchoolSettings {
+  id                      String         @id @default(cuid())
+  schoolId                String         @unique @map("school_id")
+  school                  School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  curriculumType          CurriculumType @default(STANDARD_BASED) @map("curriculum_type")
+  allowOfflineAccess      Boolean        @default(true) @map("allow_offline_access")
+  autoSyncInterval        Int            @default(30) @map("auto_sync_interval")
+  featuresEnabled         String[]       @default([]) @map("features_enabled")
+  brandingPrimaryColor    String?        @map("branding_primary_color")
+  brandingSecondaryColor  String?        @map("branding_secondary_color")
+  brandingLogo            String?        @map("branding_logo")
+  createdAt               DateTime       @default(now()) @map("created_at")
+  updatedAt               DateTime       @updatedAt @map("updated_at")
+
+  @@map("school_settings")
+}
+
+model StudentProfile {
+  id                String             @id @default(cuid())
+  userId            String             @unique @map("user_id")
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId          String             @map("school_id")
+  school            School             @relation(fields: [schoolId], references: [id])
+  gradeLevel        String             @map("grade_level")
+  studentIdNumber   String             @map("student_id_number")
+  enrollmentDate    DateTime           @map("enrollment_date")
+  expectedGraduation DateTime?         @map("expected_graduation")
+  gpa               Float?
+  attendanceRate    Float?             @map("attendance_rate")
+  subjects          String[]
+  extracurriculars  String[]
+  careerInterests   String[]           @map("career_interests")
+  guardianName      String?            @map("guardian_name")
+  guardianPhone     String?            @map("guardian_phone")
+  guardianEmail     String?            @map("guardian_email")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  performanceRecords PerformanceRecord[]
+  classEnrollments  ClassEnrollment[]
+  quizAttempts      QuizAttempt[]
+  scholarshipApps   ScholarshipApplication[]
+
+  @@index([schoolId])
+  @@index([gradeLevel])
+  @@map("student_profiles")
+}
+
+model PerformanceRecord {
+  id              String         @id @default(cuid())
+  studentId       String         @map("student_id")
+  student         StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject         String
+  score           Float
+  maxScore        Float          @map("max_score")
+  grade           String
+  percentage      Float
+  term            String
+  year            Int
+  assessmentType  String         @map("assessment_type")
+  aiInsights      String?        @map("ai_insights")
+  recommendations String?        @map("recommendations")
+  recordedBy      String         @map("recorded_by")
+  recordedAt      DateTime       @default(now()) @map("recorded_at")
+
+  @@index([studentId])
+  @@index([subject])
+  @@index([year, term])
+  @@map("performance_records")
+}
+
+model TeacherProfile {
+  id              String         @id @default(cuid())
+  userId          String         @unique @map("user_id")
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId        String         @map("school_id")
+  school          School         @relation(fields: [schoolId], references: [id])
+  employeeId      String         @map("employee_id")
+  department      String
+  subjects        String[]
+  qualifications  String[]
+  specialization  String?
+  joinDate        DateTime       @map("join_date")
+  isFullTime      Boolean        @default(true) @map("is_full_time")
+  bio             String?
+  teachingStyle   String?        @map("teaching_style")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  classesTaught   ClassTeacher[]
+  lessonPlans     LessonPlan[]
+
+  @@index([schoolId])
+  @@map("teacher_profiles")
+}
+
+model Class {
+  id          String            @id @default(cuid())
+  name        String
+  code        String            @unique
+  schoolId    String            @map("school_id")
+  school      School            @relation(fields: [schoolId], references: [id])
+  gradeLevel  String            @map("grade_level")
+  subject     String
+  room        String?
+  schedule    String?
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  enrollments ClassEnrollment[]
+  teachers    ClassTeacher[]
+
+  @@index([schoolId])
+  @@map("classes")
+}
+
+model ClassEnrollment {
+  id         String         @id @default(cuid())
+  classId    String         @map("class_id")
+  class      Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  studentId  String         @map("student_id")
+  student    StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrolledAt DateTime       @default(now()) @map("enrolled_at")
+
+  @@unique([classId, studentId])
+  @@map("class_enrollments")
+}
+
+model ClassTeacher {
+  id         String         @id @default(cuid())
+  classId    String         @map("class_id")
+  class      Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacherId  String         @map("teacher_id")
+  teacher    TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  isPrimary  Boolean        @default(false) @map("is_primary")
+  assignedAt DateTime       @default(now()) @map("assigned_at")
+
+  @@unique([classId, teacherId])
+  @@map("class_teachers")
+}
+
+model LessonPlan {
+  id              String         @id @default(cuid())
+  title           String
+  subject         String
+  gradeLevel      String         @map("grade_level")
+  curriculumType  CurriculumType @map("curriculum_type")
+  duration        Int
+  objectives      String[]
+  materials       String[]
+  introduction    String         @db.Text
+  mainActivity    String         @map("main_activity") @db.Text
+  conclusion      String         @db.Text
+  assessment      String         @db.Text
+  differentiation String?        @db.Text
+  aiGenerated     Boolean        @default(false) @map("ai_generated")
+  aiPrompt        String?        @map("ai_prompt") @db.Text
+  teacherId       String         @map("teacher_id")
+  teacher         TeacherProfile @relation(fields: [teacherId], references: [id])
+  schoolId        String         @map("school_id")
+  school          School         @relation(fields: [schoolId], references: [id])
+  isPublic        Boolean        @default(false) @map("is_public")
+  isApproved      Boolean        @default(true) @map("is_approved")
+  tags            String[]
+  viewCount       Int            @default(0) @map("view_count")
+  downloadCount   Int            @default(0) @map("download_count")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@index([schoolId])
+  @@index([teacherId])
+  @@index([subject])
+  @@index([gradeLevel])
+  @@map("lesson_plans")
+}
+
+model Presentation {
+  id            String      @id @default(cuid())
+  title         String
+  description   String?     @db.Text
+  slides        Json
+  theme         String      @default("png_standard")
+  subject       String
+  gradeLevel    String      @map("grade_level")
+  aiGenerated   Boolean     @default(false) @map("ai_generated")
+  aiPrompt      String?     @map("ai_prompt") @db.Text
+  createdBy     String      @map("created_by")
+  user          User        @relation(fields: [createdBy], references: [id])
+  schoolId      String?     @map("school_id")
+  school        School?     @relation(fields: [schoolId], references: [id])
+  isPublic      Boolean     @default(false) @map("is_public")
+  isTemplate    Boolean     @default(false) @map("is_template")
+  exportFormats String[]    @default(["pdf", "pptx"]) @map("export_formats")
+  viewCount     Int         @default(0) @map("view_count")
+  downloadCount Int         @default(0) @map("download_count")
+  lastAccessedAt DateTime?   @map("last_accessed_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  fluxImages    FluxImage[]
+
+  @@index([schoolId])
+  @@index([createdBy])
+  @@index([subject])
+  @@map("presentations")
+}
+
+model FluxImage {
+  id              String        @id @default(cuid())
+  jobId           String        @unique @map("job_id")
+  url             String
+  prompt          String?       @db.Text
+  status          String        @default("pending")
+  metadata        Json?
+  createdBy       String?       @map("created_by")
+  presentationId  String?       @map("presentation_id")
+  presentation    Presentation? @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  @@index([createdBy])
+  @@map("flux_images")
+}
+
+model Quiz {
+  id              String         @id @default(cuid())
+  title           String
+  subject         String
+  gradeLevel      String         @map("grade_level")
+  curriculumType  CurriculumType @map("curriculum_type")
+  description     String?        @db.Text
+  timeLimit       Int?           @map("time_limit")
+  passingScore    Float          @default(50) @map("passing_score")
+  maxAttempts     Int            @default(1) @map("max_attempts")
+  questions       Json
+  aiGenerated     Boolean        @default(false) @map("ai_generated")
+  createdBy       String         @map("created_by")
+  schoolId        String         @map("school_id")
+  school          School         @relation(fields: [schoolId], references: [id])
+  isPublic        Boolean        @default(false) @map("is_public")
+  isTemplate      Boolean        @default(false) @map("is_template")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  attempts        QuizAttempt[]
+
+  @@index([schoolId])
+  @@index([subject])
+  @@map("quizzes")
+}
+
+model QuizAttempt {
+  id            String         @id @default(cuid())
+  quizId        String         @map("quiz_id")
+  quiz          Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  studentId     String         @map("student_id")
+  student       StudentProfile @relation(fields: [studentId], references: [id])
+  userId        String         @map("user_id")
+  user          User           @relation(fields: [userId], references: [id])
+  answers       Json
+  score         Float
+  maxScore      Float          @map("max_score")
+  percentage    Float
+  grade         String
+  timeTaken     Int            @map("time_taken")
+  aiFeedback    String?        @map("ai_feedback") @db.Text
+  startedAt     DateTime       @map("started_at")
+  submittedAt   DateTime       @map("submitted_at")
+
+  @@index([quizId])
+  @@index([studentId])
+  @@map("quiz_attempts")
+}
+
+model Scholarship {
+  id                      String                   @id @default(cuid())
+  title                   String
+  provider                String
+  type                    ScholarshipType
+  description             String                   @db.Text
+  eligibilityCriteria     String[]                 @map("eligibility_criteria")
+  requiredGpa             Float?                   @map("required_gpa")
+  applicationDeadline     DateTime                 @map("application_deadline")
+  awardAmount             String                   @map("award_amount")
+  duration                String
+  studyLevel              EducationLevel[]         @map("study_level")
+  fieldsOfStudy           String[]                 @map("fields_of_study")
+  provinceRestriction     String[]                 @map("province_restriction")
+  applicationUrl          String?                  @map("application_url")
+  applicationInstructions String                   @map("application_instructions") @db.Text
+  documentsRequired       String[]                 @map("documents_required")
+  isActive                Boolean                  @default(true) @map("is_active")
+  featured                Boolean                  @default(false)
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+  applications            ScholarshipApplication[]
+
+  @@index([type])
+  @@index([isActive])
+  @@index([applicationDeadline])
+  @@map("scholarships")
+}
+
+model ScholarshipApplication {
+  id                String            @id @default(cuid())
+  scholarshipId     String            @map("scholarship_id")
+  scholarship       Scholarship       @relation(fields: [scholarshipId], references: [id], onDelete: Cascade)
+  studentId         String            @map("student_id")
+  student           StudentProfile    @relation(fields: [studentId], references: [id])
+  userId            String            @map("user_id")
+  user              User              @relation(fields: [userId], references: [id])
+  status            ApplicationStatus @default(DRAFT)
+  applicationData   Json              @map("application_data")
+  aiGeneratedEssay  String?           @map("ai_generated_essay") @db.Text
+  submittedAt       DateTime?         @map("submitted_at")
+  reviewedAt        DateTime?         @map("reviewed_at")
+  reviewedBy        String?           @map("reviewed_by")
+  reviewNotes       String?           @map("review_notes") @db.Text
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  @@unique([scholarshipId, studentId])
+  @@index([studentId])
+  @@index([status])
+  @@map("scholarship_applications")
+}
+
+model ChatSession {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String   @default("New Chat")
+  subject     String?
+  gradeLevel  String?  @map("grade_level")
+  messages    Json
+  isPinned    Boolean  @default(false) @map("is_pinned")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("chat_sessions")
+}
+
+model OfflineSyncQueue {
+  id          String     @id @default(cuid())
+  userId      String     @map("user_id")
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  operation   SyncOperation
+  entityType  String     @map("entity_type")
+  entityId    String     @map("entity_id")
+  payload     Json
+  retryCount  Int        @default(0) @map("retry_count")
+  status      SyncStatus @default(PENDING)
+  errorMessage String?   @map("error_message")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  processedAt DateTime?  @map("processed_at")
+
+  @@index([userId])
+  @@index([status])
+  @@map("offline_sync_queue")
+}
+
+model PaymentTransaction {
+  id                String          @id @default(cuid())
+  userId            String          @map("user_id")
+  user              User            @relation(fields: [userId], references: [id])
+  schoolId          String?         @map("school_id")
+  school            School?         @relation(fields: [schoolId], references: [id])
+  amount            Float
+  currency          String          @default("PGK")
+  provider          PaymentProvider
+  providerRef       String?         @map("provider_ref")
+  status            PaymentStatus   @default(PENDING)
+  subscriptionTier  SubscriptionTier @map("subscription_tier")
+  subscriptionPeriod String?        @map("subscription_period")
+  metadata          Json?
+  createdAt         DateTime        @default(now()) @map("created_at")
+  completedAt       DateTime?       @map("completed_at")
+  failedAt          DateTime?       @map("failed_at")
+  failureReason     String?         @map("failure_reason")
+
+  @@index([userId])
+  @@index([schoolId])
+  @@index([status])
+  @@map("payment_transactions")
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String?  @map("user_id")
+  user        User?    @relation(fields: [userId], references: [id])
+  schoolId    String?  @map("school_id")
+  school      School?  @relation(fields: [schoolId], references: [id])
+  action      String
+  entityType  String?  @map("entity_type")
+  entityId    String?  @map("entity_id")
+  details     Json?
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([schoolId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String           @db.Text
+  data      Json?
+  isRead    Boolean          @default(false) @map("is_read")
+  readAt    DateTime?        @map("read_at")
+  actionUrl String?          @map("action_url")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  SCHOOL_ADMIN
+  TEACHER
+  LECTURER
+  STUDENT
+  PARENT
+  GOVERNMENT_OFFICIAL
+}
+
+enum EducationLevel {
+  PRIMARY
+  SECONDARY
+  TVET
+  UNIVERSITY
+  POSTGRADUATE
+}
+
+enum CurriculumType {
+  STANDARD_BASED
+  OUTCOME_BASED
+  STEM
+  FODE
+}
+
+enum SubscriptionTier {
+  FREE
+  BASIC
+  PREMIUM
+  ENTERPRISE
+}
+
+enum ScholarshipType {
+  LOCAL
+  INTERNATIONAL
+  GOVERNMENT
+  PRIVATE
+  NGO
+}
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum SyncOperation {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCING
+  COMPLETED
+  FAILED
+}
+
+enum PaymentProvider {
+  BSP_BANK
+  KINA_BANK
+  CREDIT_CARD
+  MOBILE_MONEY
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum NotificationType {
+  SYSTEM
+  ACADEMIC
+  SCHOLARSHIP
+  PAYMENT
+  SECURITY
+  SOCIAL
+  AI_INSIGHT
+}
